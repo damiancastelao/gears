@@ -8,6 +8,12 @@ AsyncWebServer server(80);
 const char* ssid = "wifi";
 const char* password = "perlitalagatita";
 const char * hostName = "esp-gears";
+//MQTT Broker IP address
+// poniendo el dominio, el dns necesita un par de intentos
+// usamos ip publica programacionremota.danielcastelao.org = 
+const char* mqtt_server = "2.136.232.50";
+WiFiClient espClient;
+PubSubClient client(espClient);
 
 const char* PARAM_MESSAGE = "gpio";
 
@@ -39,18 +45,78 @@ String processor(const String& var){
   return String();
 }
 
+// parpadeo del onboard led
+void flash(int veces){
+  for (int i=0; i<veces; i++){
+    digitalWrite(ONBOARD_LED, HIGH);
+    delay(50);
+    digitalWrite(ONBOARD_LED, LOW);
+    delay(20);
+  } 
+  
+}
+
+void callback(char* topic, byte* message, unsigned int length) {
+  Serial.print("Message arrived on topic: ");
+  Serial.print(topic);
+  Serial.print(". Message: ");
+  String messageTemp;
+  
+  for (int i = 0; i < length; i++) {
+    flash(1);
+    Serial.print((char)message[i]);
+    messageTemp += (char)message[i];
+  }
+  Serial.println();
+
+  // If a message is received on the topic esp32/output, you check if the message is either "on" or "off". 
+  // Changes the output state according to the message
+  if (String(topic) == "/esp32/output") {
+    Serial.print("Changing output to ");
+    if(messageTemp == "on"){
+      Serial.println("on");
+      digitalWrite(12, HIGH);
+    }
+    else if(messageTemp == "off"){
+      Serial.println("off");
+      digitalWrite(12, LOW);
+    }
+  }
+}
+
+void reconnect() {
+  // Loop until we're reconnected
+  while (!client.connected()) {
+    Serial.print("Attempting MQTT connection...");
+    // Attempt to connect
+    if (client.connect("ESP32Client")) {
+      Serial.println("connected");
+      // Subscribe
+      client.subscribe("/esp32/output");
+    } else {
+      Serial.print("failed, rc=");
+      Serial.print(client.state());
+      Serial.println(" try again in seconds");
+      // Wait 5 seconds before retrying
+      flash(30);
+    }
+  }
+}
 
 
 void setup() {
   Serial.begin(115200);
   Serial.setDebugOutput(true);
 
+// configuramos los pines de salida
+pinMode(ONBOARD_LED, OUTPUT);
 for (int i=12; i<34; i++){
     pinMode(i, OUTPUT);
     digitalWrite(i, LOW);
-    Serial.print(i);Serial.print(".");
+    Serial.print(i);Serial.print(".");Serial.println();
   }
 
+// conectamos a la wifi
   WiFi.mode(WIFI_MODE_STA);
   WiFi.begin(ssid, password);
   if (WiFi.status() != WL_CONNECTED) {
@@ -126,18 +192,29 @@ for (int i=12; i<34; i++){
 
   server.onNotFound(notFound);
 
-  // Print local IP address and start web server
+  // Start web server
   server.begin();
-
+  // Print local IP address
+  // TODO no la imprime ¿porque?
   Serial.print("IP AP address: ");
   Serial.println(WiFi.softAPIP());
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
   Serial.print("ESP32 Board MAC Address:  ");
   Serial.println(WiFi.macAddress());
+
+  // configuracion mqtt
+  client.setServer(mqtt_server, 1883);
+  client.setCallback(callback);
 }
 
 void loop() {
+
+  if (!client.connected()) {
+    reconnect();
+  }
+  client.loop();
+
   /*for (int i=0; i<7; i++){
     digitalWrite(motores[i], HIGH);
     Serial.print(motores[i]);Serial.print(".");
@@ -148,6 +225,5 @@ void loop() {
   }
   delay(2000);
   Serial.println();
-  */
-
+*/
 }

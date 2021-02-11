@@ -6,11 +6,13 @@
 
 #include <WiFi.h>
 #include <AsyncTCP.h>
-
 #include <ESPAsyncWebServer.h>
+#include <PubSubClient.h>
 
 // salida por terminal
 #define DEBUG false
+
+#define ONBOARD_LED 2
 
 const char* PARAM_INPUT_1 = "output";
 const char* PARAM_INPUT_2 = "state";

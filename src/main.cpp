@@ -5,8 +5,8 @@ int motores[]={13, 12, 14, 27, 26, 33, 32};
 
 AsyncWebServer server(80);
 
-const char* ssid = "wifi";
-const char* password = "perlitalagatita";
+const char* ssid = "Aula14";
+const char* password = "";
 const char * hostName = "esp-gears";
 //MQTT Broker IP address
 // poniendo el dominio, el dns necesita un par de intentos
@@ -58,6 +58,16 @@ void flash(int veces){
   
 }
 
+void update(int gpio, String state){
+  if (state == "true") {
+    digitalWrite(gpio, HIGH);
+    Serial.println("Enciendo");
+  } else {
+    digitalWrite(gpio, LOW);
+    Serial.println("Apago");
+  }
+}
+
 void callback(char* topic, byte* message, unsigned int length) {
   Serial.print("Message arrived on topic: ");
   Serial.print(topic);
@@ -70,6 +80,18 @@ void callback(char* topic, byte* message, unsigned int length) {
     messageTemp += (char)message[i];
   }
   Serial.println();
+
+  String topicStr(topic);
+  int cuadroGPIO = 0;
+  if (topicStr.indexOf('/') >= 0) {
+    // The topic includes a '/', we'll try to read the number of bottles from just after that
+    topicStr.remove(0, topicStr.indexOf('/')+1);
+    // Now see if there's a number of bottles after the '/'
+    cuadroGPIO = topicStr.toInt();
+  }
+  Serial.print("Cuadro nro:");Serial.println(cuadroGPIO);
+
+  update(cuadroGPIO, messageTemp);
 
   // If a message is received on the topic esp32/output, you check if the message is either "on" or "off". 
   // Changes the output state according to the message
@@ -94,7 +116,7 @@ void reconnect() {
     if (client.connect("ESP32Client")) {
       Serial.println("connected");
       // Subscribe
-      client.subscribe("/esp32/output");
+      client.subscribe("gears/#");
     } else {
       Serial.print("failed, rc=");
       Serial.print(client.state());
@@ -115,7 +137,7 @@ pinMode(ONBOARD_LED, OUTPUT);
 for (int i=12; i<34; i++){
     pinMode(i, OUTPUT);
     digitalWrite(i, LOW);
-    Serial.print(i);Serial.print(".");Serial.println();
+    Serial.print(i);Serial.print(".");
   }
 
 // conectamos a la wifi
@@ -198,6 +220,7 @@ for (int i=12; i<34; i++){
   server.begin();
   // Print local IP address
   // TODO no la imprime ¿porque?
+  Serial.println();
   Serial.print("IP AP address: ");
   Serial.println(WiFi.softAPIP());
   Serial.print("IP address: ");
